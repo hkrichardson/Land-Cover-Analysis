@@ -1,0 +1,144 @@
+---
+title: "Optional code"
+format: html
+editor: visual
+---
+
+## Visualization
+
+```{r}
+## RGB
+par(col.axis = "white", col.lab = "white", tck = 0)
+plotRGB(landsat.crop21,
+     r = 4, g = 3, b = 2,
+     stretch = "lin", 
+     axes = TRUE,
+     main = "RGB composite image\n Landsat Bands 4, 3, 2")
+box(col = "white")
+
+## Near infrared
+par(col.axis = "white", col.lab = "white", tck = 0)
+plotRGB(landsat.crop21,
+     r = 5, g = 4, b = 3,
+     stretch = "lin",
+     axes = TRUE,
+     main = "Color infrared composite image\n Landsat Bands 5, 4, 3")
+box(col = "white")
+```
+
+```{r}
+## NDVI
+NDVIwolv <- (landsat.crop21[[5]]-landsat.crop21[[4]])/(landsat.crop21[[5]]+landsat.crop21[[4]])
+NDVI.ter <- terra::rast(NDVIwolv)
+#NDVIsmooth<- focal(NDVI.ter, w=5, fun= modal, na.policy= "all") #I think smoothing looks bad
+
+plot(NDVIwolv,
+     main ="NDVI of Wolverine Glacier Watershed",
+     axes = FALSE, box = FALSE)
+
+ hist(NDVIwolv)
+
+#attempt to isolate just vegetation
+veg <- clamp(NDVIwolv, 0.0, values=FALSE) 
+plot(veg, main="Vegetation")
+```
+
+## Manually choose training points
+
+```{r}
+## Manually pick training points
+#opens a map where I can manually click on training points
+points<- viewRGB(landsat.crop21,
+     r = 5, g = 4, b = 3)%>% editMap()
+
+#run each classification line to save the clicked points as that type of land cover
+#water<- points$finished$geometry %>% st_sf() %>% mutate(class= "water", id=1)
+ice<- points$finished$geometry %>% st_sf() %>% mutate(class= "ice/snow", id=1)
+tundra<- points$finished$geometry %>% st_sf() %>% mutate(class= "tundra", id=2)
+forest<- points$finished$geometry %>% st_sf() %>% mutate(class= "forest", id=3)
+shrub<- points$finished$geometry %>% st_sf() %>% mutate(class= "shrub", id=4)
+#rock<- points$finished$geometry %>% st_sf() %>% mutate(class= "rock", id=6)
+rocknwater<- points$finished$geometry %>% st_sf() %>% mutate(class= "rock", id=5)
+
+training_points<-rbind(ice, tundra, forest, shrub, rocknwater)
+write_sf(training_points, "wolv_trainingpoints_dec31_2.shp", driver = "ESRI shapefile", getwd())
+
+
+write.shapefile()
+```
+
+## Save land cover figures
+
+```{r}
+#raster export
+writeRaster(wolv.cover, filename = "wolvlandcov.asc", )
+
+#pdf
+pdf(filename ="wolvfiguretest2.pdf", 
+         res= 72  
+  )
+raster::plot(wolv.cover,
+     col= covcol, 
+     axes=FALSE
+    )
+sbar(4000, xy="bottomright", type="bar",divs=4)
+dev.off()
+
+pdf(file ="shrubfig.pdf")
+terra::plot(shrub.cover, 
+     col= covcol, 
+     axes=FALSE,
+     legend=FALSE)
+terra::sbar(1000, xy="bottomright", type="bar",divs=4)
+
+pdf(file ="njfigure.pdf")
+terra::plot(nj.cover, 
+     col= covcol, 
+     axes=FALSE, 
+     legend= FALSE
+     )
+terra::sbar(10000, xy="bottomright", type="bar",divs=4)
+
+pdf(file ="tundrafig.pdf")
+terra::plot(tundra.cover, 
+     col= covcol, 
+     axes=FALSE,
+     legend=FALSE)
+terra::sbar(1000, xy="bottomright", type="bar",divs=4)
+
+pdf(file ="glacierfig.pdf")
+terra::plot(glacier.cover, 
+     col= covcol, 
+     axes=FALSE,
+     legend=FALSE)
+terra::sbar(1000, xy="bottomright", type="bar",divs=4)
+
+pdf(file ="forestfig.pdf")
+terra::plot(forest.cover, 
+     col= covcol, 
+     axes=FALSE,
+     legend=FALSE)
+terra::sbar(100, xy="bottomleft", type="bar",divs=4)
+```
+
+## Save pie charts
+
+```{r}
+pdf(file ="wolvpie.pdf")
+pie(wolvpercents, labels= c("forest","snow/ice","rock/water","shrub","tundra"), col= c('darkgreen','snow2', 'dimgray', 'darkseagreen3','darkolivegreen4'), main= "Wolverine glacier watershed Land Cover")
+
+pdf(file ="tundrapie.pdf")
+tundrapie<-pie(tundra.percents, labels= c("forest","snow/ice","rock/water","shrub","tundra"), col= c('darkgreen','snow2', 'dimgray', 'darkseagreen3','darkolivegreen4'), main= "Tundra watershed Land Cover")
+
+pdf(file ="shrubpie.pdf")
+shrubpie<-pie(shrub.percents, labels= c("forest","snow/ice","rock/water","shrub","tundra"), col= c('darkgreen','snow2', 'dimgray', 'darkseagreen3','darkolivegreen4'), main= "Shrub watershed Land Cover")
+
+pdf(file ="glacierpie.pdf")
+glacierpie<-pie(glacier.percents, labels= c("snow/ice","rock/water","tundra"), col= c('snow2', 'dimgray','darkolivegreen4'), main= "Glacier watershed Land Cover")
+
+pdf(file ="njpie.pdf")
+njpie<-pie(nj.percents, labels= c("forest","snow/ice","rock/water","shrub","tundra"), col= c('darkgreen','snow2', 'dimgray', 'darkseagreen3','darkolivegreen4'), main= "Nellie Juan watershed Land Cover")
+
+pdf(file ="forestpie.pdf")
+forestpie<-pie(forest.percents, labels= c("forest","rock/water","shrub","tundra"), col= c('darkgreen', 'dimgray', 'darkseagreen3','darkolivegreen4'), main= "Forest watershed Land Cover")
+```
