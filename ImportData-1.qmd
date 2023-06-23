@@ -1,0 +1,77 @@
+---
+title: "ImportData"
+format: html
+editor: visual
+---
+
+## Load libraries
+
+```{r}
+#| output = FALSE
+#| warning = FALSE 
+## Load libraries 
+library(raster)
+library(rgdal)
+library(rgeos)
+library(RColorBrewer)
+library(tidyverse)
+library(sf)
+library(rpart)
+library(rpart.plot)
+library(ggplot2)
+library(mapedit)
+library(mapview)
+library(caret)
+library(forcats)
+library(rasterVis)
+library(cowplot)
+library(basemaps)
+library(terra)
+library(tidyterra)
+library(rasterpdf)
+library(ggmap)
+library(plyr)
+```
+
+## Import files
+
+Will need:
+
+-   Shapefile of delineated watershed to crop other layers to
+
+-   Landsat image with multiple band files
+
+```{r}
+#| output = FALSE
+#bring in shapefile to crop extents to
+nj.bound<- st_read("/Users/hannahrichardson/Documents/BSU/Research/Data/Landsat Data/Shapefile")
+
+#list all landsat files in file
+all_bandsAUG21<-list.files("/Users/hannahrichardson/Documents/BSU/Research/Data/Landsat Data/LC08_L1TP_067018_20210829_20210909_02_T1",
+                      pattern= glob2rx("*B*.TIF$"),
+                      full.names = TRUE)
+
+#stack all bands into one rasterstack
+landsat.st <- stack(all_bandsAUG21[c(1,4,5,6,7,8,9)]) #file puts bands out of order, this removes bands 10 and 11, and band 8 since the extent is different. Orders from bands 1-7
+landsat.spat<-rast(landsat.st) #make a spatraster
+
+#Download elevation data (not needed for land cover analysis, but can be nice for grabbing elevation stats of subwatersheds)
+elev<-raster::getData('alt', country= 'USA')
+AK<-terra::rast(elev[[2]])
+
+#create extents for Wolverine specific area and crop landsat to NJ extent
+nj.bound <- st_transform(nj.bound, crs = st_crs(landsat.st)) #make shapefile match crs of landsat file
+eNJ <- extent(nj.bound) #set extents for "zoomed out" Nellie Juan watershed scale
+eWolv <-extent(c(390000, 400000, 6692000, 6700000)) #set extents for "zoomed in" Wolverine watershed scale
+landsat.crop21 <- crop(landsat.st, eNJ) #crop landsat image to Nellie Juan extent
+landsat.crop21 <-raster::reclassify(landsat.crop21, cbind(-Inf, 0, NA), right=FALSE) #remove values below 0 
+#colnames(landsat.crop21) <- c('band1','band2','band3','band4','band5','band6','band7')
+```
+
+## Resources used to create this code
+
+[Training data](https://urbanspatial.github.io/classifying_satellite_imagery_in_R/)
+
+[Other NDVI](https://rspatial.org/raster/rs/rs.pdf) Here's where I got the idea to just look at vegetation
+
+[Convert different Landsat images](https://sagatutorials.wordpress.com/land-cover-change-image-differencing/) and find difference between bands
