@@ -65,7 +65,7 @@ landcov21<- levelplot(pr21, maxpixels=1e6,
 plot(landcov21)
 ```
 
-## Assess model 
+## Assess model
 
 Testing points are compared to predicted land cover and assessed using a confusion matrix
 
