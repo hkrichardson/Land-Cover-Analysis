@@ -1,0 +1,34 @@
+---
+title: "TrainPoints"
+format: html
+editor: visual
+---
+
+## Train points
+
+This script allows you to manually click training points for each land cover type. Run the "points" line, click on known land cover type using satellite imagery (I aimed for about 100 points), and press "done". It may take a few minutes for the window to close and the points to process. Once the map window closes, run the line of code corresponding to the land cover type. For example, click on 100 shrub points and then run the "shrub \<- points...." line. Once each land cover type has been assigned points, run the remainder of the code to save your points.
+
+You should skip this step once you have built a dataset you are happy with.
+
+```{r}
+## Manually pick training points
+#opens a map where I can manually click on training points
+points<- viewRGB(landsat.crop21,
+     r = 5, g = 4, b = 3)%>% editMap()
+
+#run each classification line to save the clicked points as that type of land cover
+ice<- points$finished$geometry %>% st_sf() %>% mutate(class= "ice/snow", id=1)
+tundra<- points$finished$geometry %>% st_sf() %>% mutate(class= "tundra", id=2)
+forest<- points$finished$geometry %>% st_sf() %>% mutate(class= "forest", id=3)
+shrub<- points$finished$geometry %>% st_sf() %>% mutate(class= "shrub", id=4)
+rocknwater<- points$finished$geometry %>% st_sf() %>% mutate(class= "rock", id=5)
+```
+
+```{r}
+#bind all points together into one dataset
+training_points<-rbind(ice, tundra, forest, shrub, rocknwater)
+#save as sf points
+write_sf(training_points, "wolv_trainingpoints_dec31_2.shp", driver = "ESRI shapefile", getwd())
+#save as shapefile
+write.shapefile()
+```

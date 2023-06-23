@@ -1,0 +1,88 @@
+---
+title: "CoverClassification"
+format: html
+editor: visual
+---
+
+## Classification
+
+This script imports training points from the "TrainPoints-2" script, partitions into training and testing datasets, extracts band information at each training point, and uses a classification tree to build a model associating band information with land cover type. It then predicts land cover across the entire landsat image.
+
+```{r}
+## load training points
+setwd("/Users/hannahrichardson/NDVI/Land Cover Analysis/")
+training_points<- st_read("./wolv_trainingpoints_dec31_2.shp")
+training_points<- st_transform(training_points, crs= st_crs(landsat.st))
+all_pts_spatial <- as(training_points, 'Spatial')
+
+#Create a training and testing dataset
+Train <- createDataPartition(training_points$id, p=0.7, list=F)
+training <- training_points [ Train, ]
+testing <- training_points [ -Train, ]
+
+#make points spatial
+trainingSpatial<-as(training, 'Spatial')
+testingSpatial<-as(testing, 'Spatial')
+
+alldf<-raster::extract(landsat.crop21, all_pts_spatial) %>%
+  round()
+alldf <- data.frame(all_pts_spatial$class, alldf)
+
+#create data frame of band values at each training point
+traindf <- raster::extract(landsat.crop21, trainingSpatial) %>%
+  round()
+traindf <- data.frame(trainingSpatial$class, traindf)
+
+#create data frame of band values at each testing point
+testdf <- raster::extract(landsat.crop21, testingSpatial) %>%
+  round()
+testdf <- data.frame(testingSpatial$class, testdf)
+#colnames(testdf) <- c('landcover','band1','band2','band3','band4','band5','band6','band7')
+
+#create model of datapoints and create classification tree
+model.class <- rpart(as.factor(trainingSpatial.class)~., data=traindf, method='class') 
+rpart.plot(model.class, box.palette = "auto", main= "Classificaiton Tree")
+
+#use model to predict landcover types across raster
+pr21 <-predict(landsat.crop21, model.class, type='class', progress='text') %>%
+  ratify()
+
+#prrast<-terra::rast(pr21)
+#crs(prrast) == crs(AK) #true
+
+#create levels plot to examine each land cover type
+levels(pr21)<-levels(pr21)[[1]]%>%
+  mutate(legend=c("forest","ice","rock/water","shrub","tundra"))
+
+#define color scheme 
+covcol= c('#448970','snow', '#828282', '#FFA77F','#D1FF73')
+
+#create raster of modeled land cover 
+landcov21<- levelplot(pr21, maxpixels=1e6,
+          col.regions= covcol,
+          scales=list(draw=FALSE),
+          main = "Supervised Classification of Imagery")
+plot(landcov21)
+```
+
+## Assess model 
+
+Testing points are compared to predicted land cover and assessed using a confusion matrix
+
+```{r}
+test <- raster::extract(pr21, testingSpatial) %>% 
+  as.data.frame
+
+#numbers representing cover don't match, re-name to make comparable 
+testingSpatial$id <- mapvalues(testingSpatial$id, from = c(1,2,3,4,5), to = c(2,5,1,4,3))
+
+#testProbs is a dataframe: obs column is the assigned cover, pred is the cover extracted from the predicted model, correct shows if the model predicted correctly
+testProbs <- data.frame(
+  obs = as.factor(testingSpatial$id),
+  pred = as.factor(test$.)) %>% 
+  mutate(correct = ifelse(obs == pred, 1, 0))
+
+#See observed vs. predicted in a matrix, record accuracy, p-value, etc. This will change slightly each time this script is run since the training and testing points are randomly chosen each time. 
+confMatrix <- confusionMatrix(testProbs$obs, testProbs$pred)
+confMatrix
+```

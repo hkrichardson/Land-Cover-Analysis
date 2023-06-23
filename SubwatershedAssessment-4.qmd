@@ -1,0 +1,90 @@
+---
+title: "SubwatershedAssessment"
+format: html
+editor: visual
+---
+
+# Import watershed shape files
+
+The following code chunks follow a similar analysis pattern as described here.
+
+1.  Imports watershed shapefile
+2.  Extracts modeled land cover by watershed outline
+3.  Segregates each land cover type so spatial patterns can be more easily observed
+4.  Calculates area of total watershed and each land cover type
+5.  Extracts elevation based on watershed boundaries
+
+### Tundra sub-watershed
+
+```{r}
+#upload shapefiles, set crs
+tundra.shed<- st_read("/Users/hannahrichardson/Documents/BSU/Research/Data/Landsat Data/Watershed boundaries/CRS works/TundraSubwatershed")
+tundra.shed<- terra::vect(st_transform(tundra.shed, crs = st_crs(landsat.st)))
+prlandcov<-terra::rast(pr21)
+tundra.shed<-project(tundra.shed, prlandcov)
+tundra.cover<- terra::crop(prlandcov,tundra.shed, mask=TRUE)
+tundra.shed.size<-terra::expanse(tundra.cover, unit="km")
+
+#segment by classification
+tundra.segments<-terra::segregate(tundra.cover)
+names(tundra.segments) <- c("forest","ice","rockwater","shrub","tundra")
+plot(tundra.segments)
+
+#calculate area size for each cover type
+forest.size<-sum(values(tundra.segments$forest, na.rm=TRUE))
+ice.size<-sum(values(tundra.segments$ice), na.rm=TRUE)
+rockwater.size<-sum(values(tundra.segments$rockwater), na.rm=TRUE)
+shrub.size<-sum(values(tundra.segments$shrub), na.rm=TRUE)
+tundra.size<-sum(values(tundra.segments$tundra), na.rm=TRUE)
+
+#calculate total area and percents
+tundra.all.size<- sum(forest.size, ice.size, rockwater.size, shrub.size, tundra.size)
+forper<-(forest.size/tundra.all.size)*100
+iceper<-(ice.size/tundra.all.size)*100
+rowaper<-(rockwater.size/tundra.all.size)*100
+shrper<-(shrub.size/tundra.all.size)*100
+tunper<-(tundra.size/tundra.all.size)*100
+tundra.percents<-c(forper, iceper, rowaper, shrper, tunper)
+
+tundra.percents
+AKtundra<-terra::project(AK,crs(tundra.shed)) 
+tundra.elev<-terra::crop(AKtundra, tundra.shed, mask=TRUE)
+```
+
+### Forest sub-watershed
+
+```{r}
+#upload shapefiles, set crs
+forest.shed<- st_read("/Users/hannahrichardson/Documents/BSU/Research/Data/Landsat Data/Watershed boundaries/CRS works/Forest_New")
+forest.shed<- terra::vect(st_transform(forest.shed, crs = st_crs(landsat.st)))
+prlandcov<-terra::rast(pr21)
+forest.shed<-project(forest.shed, prlandcov)
+forest.cover<- terra::crop(prlandcov,forest.shed, mask=TRUE)
+forest.shed.size<-terra::expanse(forest.cover, unit="km")
+
+#segment by classification
+forest.segments<-terra::segregate(forest.cover)
+names(forest.segments) <- c("forest","rockwater")
+plot(forest.segments)
+
+#calculate area size for each cover type
+#some subwatersheds won't have every type of land cover, I have been manually commenting those out for this step
+
+forest.size<-sum(values(forest.segments$forest, na.rm=TRUE))
+#ice.size<-sum(values(forest.segments$ice), na.rm=TRUE)  
+rockwater.size<-sum(values(forest.segments$rockwater), na.rm=TRUE)
+#shrub.size<-sum(values(forest.segments$shrub), na.rm=TRUE)
+#tundra.size<-sum(values(forest.segments$tundra), na.rm=TRUE)
+
+#calculate total area and percents
+all.size<- sum(forest.size, rockwater.size)
+forper<-(forest.size/all.size)*100
+#iceper<-(ice.size/all.size)*100
+rowaper<-(rockwater.size/all.size)*100
+#shrper<-(shrub.size/all.size)*100
+#tunper<-(tundra.size/all.size)*100
+forest.percents<-c(forper, iceper, rowaper, shrper, tunper) 
+
+forest.percents
+#forest.elev<-terra::crop(AKnj, forest.shed, mask=TRUE)
+```
