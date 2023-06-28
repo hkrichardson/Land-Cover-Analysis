@@ -98,3 +98,80 @@ terra::sbar(100, xy="bottomleft", type="bar",divs=4)
 ```
 
 ## 
+
+```{r}
+
+library(tidyverse)
+colnames(traindf) <- c('class','band1','band2','band3','band4','band5','band6','band7')
+
+#create a dataframe of mean band values of each landcover type
+profiles <- traindf %>% 
+  as.data.frame() %>% 
+  cbind(., trainingSpatial$id) %>% 
+  dplyr::rename(id = "trainingSpatial$id") %>% 
+  na.omit() %>% 
+  group_by(id) %>% 
+  dplyr::summarise(band1 = mean(band1),
+            band2 = mean(band2),
+            band3 = mean(band3),
+            band4 = mean(band4),
+            band5 = mean(band5),
+            band6 = mean(band6),
+            band7 = mean(band7)) %>% 
+  mutate(id = case_when(id == 1 ~ "icesnow",
+                        id == 2 ~ "tundra",
+                        id == 3 ~ "forest",
+                        id == 4 ~ "shrub",
+                        id == 5 ~ "rockwater")) %>% 
+  as.data.frame()
+
+head(profiles)
+```
+
+Spectral profile of bands
+
+```{r}
+profiles %>% 
+  select(-id) %>% 
+  gather() %>% 
+  mutate(class = rep(c("icesnow", "tundra", "forest","shrub", "rockwater"), 7)) %>% 
+  ggplot(data = ., aes(x = fct_relevel(as.factor(key),
+                                       levels = c("band1", "band2", "band3", "band4"
+                                                  ,"band5","band6", "band7")), 
+                       y = value, 
+                       group=class, color = class)) +
+  geom_point(size = 2.5) +
+  geom_line(lwd = 1.2) +
+  scale_color_manual(values=c('#448970', 'snow2', '#828282','#FFA77F','#D1FF73')) +
+  labs(title = "Spectral Profile from Landsat 8 Imagery",
+       x = "Bands",
+       y = "Reflectance") +
+  #scale_y_continuous(limits=c(5000, 15000)) +
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_line(color = "gray", size = 0.5),
+        panel.grid.minor = element_line(color = "gray", size = 0.5),
+        axis.ticks = element_blank())
+```
+
+Density of bands
+
+```{r}
+profiles %>% 
+  select(-id) %>% 
+  gather() %>% 
+  mutate(class = rep(c("icesnow", "tundra", "forest","shrub", "rockwater"), 7)) %>% 
+  ggplot(., aes(x=value, group=as.factor(class), fill=as.factor(class))) + 
+  geom_density(alpha = 0.5) + 
+  geom_vline(data = . %>% group_by(class) %>% dplyr::summarise(grp.mean = mean(value)),
+             aes(xintercept=grp.mean, color = class), linetype="dashed", size=1) +
+ # scale_color_manual(values=c('darkgreen','snow', 'dimgray', 'darkseagreen3',
+  #                            'darkolivegreen4')) +
+  theme(panel.background = element_blank(),
+        panel.grid.major = element_line(color = "gray", size = 0.5),
+        panel.grid.minor = element_line(color = "gray", size = 0.5),
+        axis.ticks = element_blank()) +
+  labs(x = "Reflectance Value",
+       y = "Density",
+       title = "Density histograms of spectral profiles",
+       subtitle = "Vertical lines represent mean group reflectance values")
+```
